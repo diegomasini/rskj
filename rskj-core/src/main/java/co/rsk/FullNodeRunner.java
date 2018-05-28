@@ -28,10 +28,7 @@ import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
 import co.rsk.mine.TxBuilder;
 import co.rsk.mine.TxBuilderEx;
-import co.rsk.net.BlockProcessResult;
-import co.rsk.net.BlockProcessor;
-import co.rsk.net.MessageHandler;
-import co.rsk.net.Metrics;
+import co.rsk.net.*;
 import co.rsk.net.discovery.UDPServer;
 import co.rsk.rpc.netty.Web3HttpServer;
 import co.rsk.rpc.netty.Web3WebSocketServer;
@@ -73,6 +70,7 @@ public class FullNodeRunner implements NodeRunner {
     private final TransactionPool transactionPool;
     private final PeerServer peerServer;
     private final SyncPool.PeerClientFactory peerClientFactory;
+    private final TransactionGateway transactionGateway;
 
     private final PruneService pruneService;
 
@@ -94,7 +92,8 @@ public class FullNodeRunner implements NodeRunner {
             BlockProcessor nodeBlockProcessor,
             TransactionPool transactionPool,
             PeerServer peerServer,
-            SyncPool.PeerClientFactory peerClientFactory) {
+            SyncPool.PeerClientFactory peerClientFactory,
+            TransactionGateway transactionGateway) {
         this.rsk = rsk;
         this.udpServer = udpServer;
         this.minerServer = minerServer;
@@ -115,6 +114,7 @@ public class FullNodeRunner implements NodeRunner {
 
         PruneConfiguration pruneConfiguration = rskSystemProperties.getPruneConfiguration();
         this.pruneService = new PruneService(pruneConfiguration, rskSystemProperties, blockchain, PrecompiledContracts.REMASC_ADDR);
+        this.transactionGateway = transactionGateway;
     }
 
     @Override
@@ -129,6 +129,7 @@ public class FullNodeRunner implements NodeRunner {
         );
         BuildInfo.printInfo();
 
+        transactionGateway.start();
         // this should be the genesis block at this point
         transactionPool.start(blockchain.getBestBlock());
         channelManager.start();
@@ -268,6 +269,7 @@ public class FullNodeRunner implements NodeRunner {
         peerServer.stop();
         messageHandler.stop();
         channelManager.stop();
+        transactionGateway.stop();
 
         if (rskSystemProperties.isPeerDiscoveryEnabled()) {
             try {
